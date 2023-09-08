@@ -38,22 +38,32 @@ import (
 
 const (
 	flagEnableLeaderElection           = "enable-leader-election"
+	envEnableLeaderElection            = "ENABLED_LEADER_ELECTION"
 	flagLeaderElectionNamespace        = "leader-election-namespace"
+	envLeaderElectionNamespace         = "LEADER_ELECTION_NAMESPACE"
 	flagMetricAddr                     = "metrics-addr"
 	flagEnableDevLogging               = "enable-development-logging"
+	envEnableDevLogging                = "ACK_ENABLE_DEVELOPMENT_LOGGING"
 	flagAWSRegion                      = "aws-region"
+	envVarAWSRegion                    = "AWS_REGION"
 	flagAWSEndpointURL                 = "aws-endpoint-url"
+	envAWSEndpointURL                  = "AWS_ENDPOINT_URL"
 	flagAWSIdentityEndpointURL         = "aws-identity-endpoint-url"
 	flagUnsafeAWSEndpointURLs          = "allow-unsafe-aws-endpoint-urls"
 	flagLogLevel                       = "log-level"
+	envLogLevel                        = "ACK_LOG_LEVEL"
 	flagResourceTags                   = "resource-tags"
+	envResourceTags                    = "ACK_RESOURCE_TAGS"
 	flagWatchNamespace                 = "watch-namespace"
+	envWatchNamespace                  = "ACK_WATCH_NAMESPACE"
 	flagEnableWebhookServer            = "enable-webhook-server"
 	flagWebhookServerAddr              = "webhook-server-addr"
 	flagDeletionPolicy                 = "deletion-policy"
+	envDeletionPolicy                  = "DELETION_POLICY"
 	flagReconcileDefaultResyncSeconds  = "reconcile-default-resync-seconds"
+	envReconcileDefaultResyncSeconds   = "RECONCILE_DEFAULT_RESYNC_SECONDS"
 	flagReconcileResourceResyncSeconds = "reconcile-resource-resync-seconds"
-	envVarAWSRegion                    = "AWS_REGION"
+	envReconcileResourceResyncSeconds  = "RECONCILE_RESOURCE_RESYNC_SECONDS"
 )
 
 var (
@@ -109,12 +119,12 @@ func (cfg *Config) BindFlags() {
 	)
 	flag.BoolVar(
 		&cfg.EnableLeaderElection, flagEnableLeaderElection,
-		false,
+		envutil.WithDefaultBool(envEnableLeaderElection, false),
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.",
 	)
 	flag.StringVar(
-		// In the context of the controller-runtime library, if the LeaderElectionNamespace parametere is not
+		// In the context of the controller-runtime library, if the LeaderElectionNamespace parameter is not
 		//  explicitly set, the library will automatically default its value to the content of the file
 		// mounted at /var/run/secrets/kubernetes.io/serviceaccount/namespace.
 		// https://github.com/kubernetes-sigs/controller-runtime/blob/main/pkg/leaderelection/leader_election.go#L112-L127
@@ -126,13 +136,13 @@ func (cfg *Config) BindFlags() {
 		// and /var/run/secrets/kubernetes.io/serviceaccount/namespace, respectively.
 		// https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/serviceaccount/tokens_controller.go#L399-L402
 		&cfg.LeaderElectionNamespace, flagLeaderElectionNamespace,
-		"",
+		envutil.WithDefault(envLeaderElectionNamespace, ""),
 		"Specific namespace that the controller will utilize to manage the coordination.k8s.io/lease object for leader election."+
 			" By default it will try to use the namespace of the service account mounted to the controller pod.",
 	)
 	flag.BoolVar(
 		&cfg.EnableDevelopmentLogging, flagEnableDevLogging,
-		false,
+		envutil.WithDefaultBool(envEnableDevLogging, false),
 		"Configures the logger to use a Zap development config (encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn, no sampling), "+
 			"otherwise a Zap production config will be used (encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error), sampling).",
 	)
@@ -143,7 +153,7 @@ func (cfg *Config) BindFlags() {
 	)
 	flag.StringVar(
 		&cfg.EndpointURL, flagAWSEndpointURL,
-		"",
+		envutil.WithDefault(envAWSEndpointURL, ""),
 		"The AWS endpoint URL the service controller will use to create its resources. This is an optional"+
 			" flag that can be used to override the default behaviour of aws-sdk-go that constructs endpoint URLs"+
 			" automatically based on service and region",
@@ -162,17 +172,18 @@ func (cfg *Config) BindFlags() {
 	)
 	flag.StringVar(
 		&cfg.LogLevel, flagLogLevel,
-		"info",
+		envutil.WithDefault(envLogLevel, "info"),
 		"The log level. The default is info. The options are: debug, info, warn, error, dpanic, panic, fatal",
 	)
 	flag.StringSliceVar(
 		&cfg.ResourceTags, flagResourceTags,
+		// TODO envutil.WithDefaultStringSlice or implement pflag.Value?
 		defaultResourceTags,
 		"Configures the ACK service controller to always set key/value pairs tags on resources that it manages.",
 	)
 	flag.StringVar(
 		&cfg.WatchNamespace, flagWatchNamespace,
-		"",
+		envutil.WithDefault(envWatchNamespace, ""),
 		"Specific namespace the service controller will watch for object creation from CRD. "+
 			" By default it will listen to all namespaces",
 	)
@@ -280,6 +291,7 @@ func (cfg *Config) Validate(options ...Option) error {
 	}
 
 	if cfg.DeletionPolicy == "" {
+		cfg.DeletionPolicy.Set(envutil.WithDefault(envDeletionPolicy, string(ackv1alpha1.DeletionPolicyDelete)))
 		cfg.DeletionPolicy = ackv1alpha1.DeletionPolicyDelete
 	}
 
